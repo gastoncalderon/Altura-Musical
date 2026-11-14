@@ -13,16 +13,22 @@ main{max-width:880px;margin:0 auto;padding:10px}
 h1{font-size:1.35rem;margin:4px 0 8px;text-align:center}
 #hud{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:space-between;background:var(--card);border:3px solid var(--line);border-radius:18px;padding:6px 14px;margin-bottom:8px}
 #next{display:inline-block;min-width:3.2ch;text-align:center;font-size:1.5rem;font-weight:800;color:#fff;padding:2px 14px;border-radius:14px;background:#999;text-shadow:0 2px 0 rgba(0,0,0,.25)}
-#heard{font-size:1.05rem;min-width:12ch}#lives{font-size:1.5rem;color:#ef476f}
+#heard{font-size:1.05rem;min-width:12ch}#time{font-size:1.05rem;min-width:7ch}#lives{font-size:1.5rem;color:#ef476f}
 #wrap{position:relative}
 canvas{width:100%;display:block;border-radius:20px;border:4px solid var(--line);background:#8fdcff}
-#ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(255,248,230,.95);color:#26305e;border-radius:20px;text-align:center;padding:14px;overflow:auto}
-#ov h2{margin:0;font-size:1.6rem}#ov p{margin:0;max-width:54ch}
+#ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;gap:10px;background:rgba(255,248,230,.96);color:#26305e;border-radius:20px;text-align:center;padding:14px;overflow:auto}
+#ov>:first-child{margin-top:auto}#ov>:last-child{margin-bottom:auto}
+#ov h2{margin:0;font-size:1.6rem}#ov h3{font-size:1.05rem}#ov p{margin:0;max-width:54ch}
 button{font:inherit;font-weight:800;padding:11px 18px;border-radius:16px;border:0;background:#ff9f1c;color:#fff;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.2);text-shadow:0 1px 0 rgba(0,0,0,.25)}
 button:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.2)}
 button.sec{background:#6c7bd9}
+button small{font-weight:600;opacity:.95}
+.lvb{padding:8px 12px;min-width:5.6em}
 .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 .chip{font-size:1.4rem;min-width:4.2ch;padding:14px 12px}.chip.on{outline:5px solid #26305e;transform:scale(1.12)}
+#nm{font:inherit;font-size:1.3rem;text-align:center;padding:10px;border-radius:14px;border:3px solid #b5defa;width:12em;max-width:90%;color:#26305e;background:#fff}
+table{border-collapse:collapse;min-width:min(420px,92%)}td,th{padding:5px 12px}th{font-size:.85rem;color:#5b6399}
+tr.me{background:#ffe9a8}tr td:nth-child(2){text-align:left}
 #bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;margin-top:10px}
 label{font-size:.95rem}
 </style>
@@ -33,6 +39,7 @@ label{font-size:.95rem}
 <div id="hud" aria-live="polite">
  <div>Cantá: <span id="next">—</span></div>
  <div id="heard">Cantás: —</div>
+ <div id="time">⏱ 0.0 s</div>
  <div id="lives" aria-label="Vidas">♥♥♥</div>
 </div>
 <div id="wrap">
@@ -41,25 +48,33 @@ label{font-size:.95rem}
 </div>
 <div id="bar">
  <button class="sec" id="hear">🔊 Escuchar la nota</button>
- <button class="sec" id="menu">🏠 Menú</button>
+ <button class="sec" id="menu">🏠 Niveles</button>
  <label><input type="checkbox" id="help" checked> Mostrar nombres de las notas</label>
 </div>
 </main>
 <script>
-const NOTES={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Si:11};
-const COL={Do:"#ef476f",Re:"#ff9f1c",Mi:"#e9b800",Fa:"#3bb273",Sol:"#1fa8d6",La:"#4361ee",Si:"#9b5de5"};
+const NOTES={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Si:11,"Do’":12};
+const COL={Do:"#ef476f",Re:"#ff9f1c",Mi:"#e9b800",Fa:"#3bb273",Sol:"#1fa8d6",La:"#4361ee",Si:"#9b5de5","Do’":"#c9184a"};
 const CH=["Do","Do♯","Re","Re♯","Mi","Fa","Fa♯","Sol","Sol♯","La","La♯","Si"];
-const LEVELS=[
- {t:"Nivel 1 · Do – Re – Mi",w:["Do","Re","Mi"],sp:3.2,tol:.95},
- {t:"Nivel 2 · De Do a Sol",w:["Do","Re","Mi","Fa","Sol"],sp:3.5,tol:.85},
- {t:"Nivel 3 · La escala",w:["Do","Re","Mi","Fa","Sol","La","Si"],sp:3.7,tol:.8},
- {t:"Nivel 4 · Bajando la escalera",w:["Sol","Fa","Mi","Re","Do"],sp:3.7,tol:.8},
- {t:"Nivel 5 · Saltos",w:["Do","Mi","Sol","La","Sol","Mi","Do"],sp:4,tol:.7}
+const WORLDS=[
+ {t:"Mundo 1 · Do a Mi",col:"#f08a00",sp:3.2,tol:1,lv:["Do Re Mi","Do Re Mi Re Do","Do Mi Do","Do Mi Re Do"]},
+ {t:"Mundo 2 · Do a Sol",col:"#2f9e63",sp:3.5,tol:.9,lv:["Do Re Mi Fa Sol","Do Re Mi Fa Sol Fa Mi Re Do","Do Mi Sol","Do Mi Sol Mi Do","Do Sol Do","Do Mi Do Sol Do"]},
+ {t:"Mundo 3 · Do a Do agudo",col:"#6c7bd9",sp:3.8,tol:.8,lv:["Do Re Mi Fa Sol La Si Do’","Do Re Mi Fa Sol La Si Do’ Si La Sol Fa Mi Re Do","Do Mi Sol Do’","Do Mi Sol Do’ Sol Mi Do","Do Mi Do Sol Do Do’"]}
 ];
+const LEVELS=[];
+WORLDS.forEach((Wd,wi)=>Wd.lv.forEach((s,li)=>LEVELS.push({wi,li,id:(wi+1)+"-"+(li+1),w:s.split(" "),sp:Wd.sp,tol:Wd.tol})));
 const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const cv=$("cv"),g=cv.getContext("2d");
 const W=800,H=500,F=560,HZ=250,CAMY=1.6,ZB=4,WX=2.4,YMIN=.45,YMAX=3,BR=.17;
 let ac,an,buf,G=null,hist=[],last=performance.now(),seqBusy=false;
+
+/* ---------- Datos del jugador (se guardan en este navegador) ---------- */
+const mem={name:"",db:{}};
+try{mem.db=JSON.parse(localStorage.getItem("pc_scores")||"{}");mem.name=localStorage.getItem("pc_name")||""}catch(e){}
+function saveData(){try{localStorage.setItem("pc_scores",JSON.stringify(mem.db));localStorage.setItem("pc_name",mem.name)}catch(e){}}
+function rec(){const k=mem.name.toLowerCase();return mem.db[k]||(mem.db[k]={n:mem.name,s:{}})}
+const tot=p=>Object.values(p.s).reduce((a,b)=>a+b,0);
 
 /* ---------- Audio ---------- */
 async function initMic(){
@@ -95,33 +110,53 @@ function tone(s){
  o.connect(v).connect(ac.destination);o.start(t);o.stop(t+1.15);
 }
 
-/* ---------- Juego ---------- */
-function start(i){
- const L=LEVELS[i],ns=L.w.map(x=>NOTES[x]),mn=Math.min(...ns),mx=Math.max(...ns);
- let lo=mn-3,hi=mx+3;if(hi-lo<10){const m=(lo+hi)/2;lo=m-5;hi=m+5}
- G={i,L,lo,hi,c:(mn+mx)/2,perSemi:(YMAX-YMIN)/(hi-lo),lives:3,by:.17,tgt:.17,lv:0,gate:0,flash:0,state:"play",cur:-1,travel:0,endAt:0,
-  walls:ns.map((s,k)=>({z:30+k*13,s,name:L.w[k],done:false,said:false}))};
- $("ov").style.display="none";
-}
-const yW=s=>YMIN+(s-G.lo)*G.perSemi;
-const halfH=()=>Math.max(.17,G.L.tol*G.perSemi);
-function fold(s){const b=G.c-6;return((s-b)%12+12)%12+b}
-function nextWall(){return G&&G.walls.find(w=>!w.done)}
-function overlay(html){const o=$("ov");o.innerHTML=html;o.style.display="flex"}
-
-function showMenu(){
+/* ---------- Pantallas ---------- */
+function overlay(html){const o=$("ov");o.innerHTML=html;o.style.display="flex";o.scrollTop=0}
+function showEntry(){
  G=null;
- overlay(`<h2>¿Podés cantar la nota justa?</h2>
- <p>Sos la pelotita y avanzás por el camino. Cada pared de madera tiene un hueco y una nota. <b>Cantá esa nota</b> y tu pelotita sube o baja hasta el hueco: si es más aguda, sube; si es más grave, baja.</p>
- <p>Cantá en la altura que te quede cómoda. Si usás auriculares, el juego te escucha mejor.</p>
- <div class="row" id="lv"></div><p id="err" style="color:#c0392b;font-weight:700"></p>`);
- LEVELS.forEach((L,i)=>{const b=document.createElement("button");b.textContent=L.t;b.onclick=async()=>{
-  if(!await initMic()){$("err").textContent="No pude usar el micrófono. Revisá que el navegador tenga permiso para usarlo.";return}
-  if(ac.state==="suspended")ac.resume();preview(i)};$("lv").appendChild(b)});
+ overlay(`<h2>¡Bienvenido a la pelotita cantora!</h2>
+ <p>Sos una pelotita que pasa por huecos en paredes de madera. Para cada hueco tenés que <b>cantar la nota justa</b>.</p>
+ <p>¿Cómo te llamás?</p>
+ <input id="nm" maxlength="14" placeholder="Tu nombre" value="${esc(mem.name)}" autocomplete="off">
+ <div class="row"><button id="pl">Jugar ▶</button><button class="sec" id="bd">🏆 Mejores puntajes</button></div>`);
+ const go=()=>{mem.name=($("nm").value.trim()||"Jugador").slice(0,14);rec();saveData();showLevels()};
+ $("pl").onclick=go;$("nm").onkeydown=e=>{if(e.key==="Enter")go()};
+ $("bd").onclick=()=>showBoard(showEntry);
+}
+function showLevels(){
+ G=null;const p=rec();
+ overlay(`<h2>Elegí un nivel</h2>
+ <p>Jugador: <b>${esc(mem.name)}</b> · Puntos totales: <b>${tot(p)}</b></p>
+ <div id="ws"></div><p id="err" style="color:#c0392b;font-weight:700"></p>
+ <div class="row"><button class="sec" id="bd">🏆 Mejores puntajes</button><button class="sec" id="ch">Cambiar jugador</button></div>`);
+ WORLDS.forEach((Wd,wi)=>{
+  const d=document.createElement("div");d.innerHTML=`<h3 style="margin:6px 0;color:${Wd.col}">${Wd.t}</h3><div class="row"></div>`;
+  const r=d.lastChild;
+  LEVELS.forEach((L,i)=>{if(L.wi!==wi)return;
+   const b=document.createElement("button"),bs=p.s[L.id];b.className="lvb";b.style.background=Wd.col;
+   b.innerHTML=`Nivel ${L.li+1}<br><small>${bs?"✓ "+bs:L.w.length+" notas"}</small>`;
+   b.onclick=async()=>{
+    if(!await initMic()){$("err").textContent="No pude usar el micrófono. Revisá que el navegador tenga permiso para usarlo.";return}
+    if(ac.state==="suspended")ac.resume();preview(i)};
+   r.appendChild(b)});
+  $("ws").appendChild(d)});
+ $("bd").onclick=()=>showBoard(showLevels);$("ch").onclick=showEntry;
+}
+function showBoard(back){
+ G=null;
+ const rows=Object.values(mem.db).map(p=>({n:p.n,t:tot(p),c:Object.keys(p.s).length})).sort((a,b)=>b.t-a.t).slice(0,10);
+ const me=mem.name.toLowerCase();
+ overlay(`<h2>🏆 Mejores puntajes</h2>`+(rows.length?
+  `<table><tr><th></th><th>Jugador</th><th>Puntos</th><th>Niveles</th></tr>`+
+  rows.map((r,i)=>`<tr class="${r.n.toLowerCase()===me?"me":""}"><td>${["🥇","🥈","🥉"][i]||i+1}</td><td>${esc(r.n)}</td><td><b>${r.t}</b></td><td>${r.c}/${LEVELS.length}</td></tr>`).join("")+`</table>`
+  :`<p>Todavía no hay puntajes. ¡Sé el primero!</p>`)+
+  `<p style="font-size:.85rem;color:#5b6399">Los puntajes se guardan en este dispositivo.</p><div class="row"><button id="bk">Volver</button></div>`);
+ $("bk").onclick=back;
 }
 function preview(i){
- G=null;const L=LEVELS[i],uniq=[...new Set(L.w)];
- overlay(`<h2>${L.t}</h2>
+ G=null;const L=LEVELS[i],uniq=[...new Set(L.w)].sort((a,b)=>NOTES[a]-NOTES[b]);
+ overlay(`<h2>${WORLDS[L.wi].t.split(" · ")[0]} · Nivel ${L.li+1}</h2>
+ <p>Orden de las notas: <b>${L.w.join(" → ")}</b></p>
  <p>Primero escuchá las notas de este nivel. Tocá cada una para oírla y probá cantarla.</p>
  <div class="row" id="chips"></div>
  <div class="row"><button id="all">▶ Escuchar en orden</button><button id="go">¡A jugar! 🚀</button><button class="sec" id="bk">Volver</button></div>`);
@@ -129,53 +164,88 @@ function preview(i){
   b.onclick=()=>tone(NOTES[n]);$("chips").appendChild(b)});
  $("all").onclick=()=>{if(seqBusy)return;seqBusy=true;
   L.w.forEach((n,k)=>setTimeout(()=>{document.querySelectorAll(".chip").forEach(c=>c.classList.toggle("on",c.dataset.n===n));tone(NOTES[n]);
-   if(k===L.w.length-1)setTimeout(()=>{document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));seqBusy=false},900)},k*1000))};
- $("go").onclick=()=>start(i);$("bk").onclick=showMenu;
+   if(k===L.w.length-1)setTimeout(()=>{document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));seqBusy=false},900)},k*850))};
+ $("go").onclick=()=>start(i);$("bk").onclick=showLevels;
 }
+
+/* ---------- Juego ---------- */
+function start(i){
+ const L=LEVELS[i],ns=L.w.map(x=>NOTES[x]),mn=Math.min(...ns),mx=Math.max(...ns);
+ let lo=mn-1.5,hi=mx+1.5;if(hi-lo<10){const m=(lo+hi)/2;lo=m-5;hi=m+5}
+ hist=[];
+ G={i,L,lo,hi,c:(mn+mx)/2,perSemi:(YMAX-YMIN)/(hi-lo),lives:3,by:BR,tgt:BR,lv:0,gate:0,flash:0,state:"play",cur:-1,travel:0,
+  t:0,tEnd:0,endAt:0,cal:(mx-mn)>=11,oct:null,s0:ns[0],
+  walls:ns.map((s,k)=>({z:30+k*13,s,name:L.w[k],done:false,said:false}))};
+ $("ov").style.display="none";
+}
+const yW=s=>YMIN+(s-G.lo)*G.perSemi;
+const halfH=()=>Math.max(.19,G.L.tol*G.perSemi);
+function fold(s){const b=G.c-6;return((s-b)%12+12)%12+b}
+// Convierte la nota que canta la persona en una altura de la escala (en semitonos desde el Do)
+function sung(m){return G.cal?m-60-12*(G.oct==null?Math.round((m-60-G.s0)/12):G.oct):fold(m-60)}
+function nextWall(){return G&&G.walls.find(w=>!w.done)}
+
 function finish(win){
- const i=G.i,stars="★".repeat(G.lives)+"☆".repeat(3-G.lives);
+ const L=G.L,i=G.i,stars="★".repeat(G.lives)+"☆".repeat(3-G.lives);
  G.state=win?"win":"over";
- overlay(win?`<h2>¡Lo lograste! ${stars}</h2><p>Pasaste todas las paredes. Cuantas más vidas te queden, más estrellas ganás.</p>
-  <div class="row">${i<LEVELS.length-1?'<button id="nx">Siguiente nivel ➜</button>':''}<button class="sec" id="rp">Repetir</button><button class="sec" id="mn">Menú</button></div>`
-  :`<h2>¡Uy! La pelotita chocó 😵</h2><p>Probá de nuevo. Tocá “Escuchar la nota”, cantala bajito para encontrarla y después dejá que la pelotita avance.</p>
-  <div class="row"><button id="rp">Reintentar</button><button class="sec" id="pv">Escuchar las notas</button><button class="sec" id="mn">Menú</button></div>`);
- if($("nx"))$("nx").onclick=()=>preview(i+1);
- if($("pv"))$("pv").onclick=()=>preview(i);
- $("rp").onclick=()=>start(i);$("mn").onclick=showMenu;
+ if(win){
+  const n=L.w.length,ideal=(30+(n-1)*13-ZB)/L.sp,extra=Math.max(0,G.tEnd-ideal-.3);
+  const sc=Math.max(100,Math.round(1000-50*extra))+100*G.lives,p=rec(),old=p.s[L.id]||0,nr=sc>old;
+  if(nr)p.s[L.id]=sc;saveData();
+  overlay(`<h2>¡Lo lograste! ${stars}</h2>
+  <p>⏱ Tiempo: <b>${G.tEnd.toFixed(1)} s</b> · Vidas: <b>${G.lives}</b></p>
+  <p style="font-size:1.5rem">Puntos del nivel: <b>${sc}</b>${nr?" 🎉 ¡Nuevo récord!":""}</p>
+  <p>Puntos totales de ${esc(mem.name)}: <b>${tot(p)}</b></p>
+  <div class="row">${i<LEVELS.length-1?'<button id="nx">Siguiente nivel ➜</button>':''}<button class="sec" id="rp">Repetir</button><button class="sec" id="lv">Niveles</button><button class="sec" id="bd">🏆 Puntajes</button></div>`);
+  if($("nx"))$("nx").onclick=()=>preview(i+1);
+  $("bd").onclick=()=>showBoard(()=>showLevels());
+ }else{
+  overlay(`<h2>¡Uy! La pelotita chocó 😵</h2><p>Probá de nuevo. Tocá “Escuchar la nota”, cantala bajito para encontrarla y después dejá que la pelotita avance.</p>
+  <div class="row"><button id="rp">Reintentar</button><button class="sec" id="pv">Escuchar las notas</button><button class="sec" id="lv">Niveles</button></div>`);
+  $("pv").onclick=()=>preview(i);
+ }
+ $("rp").onclick=()=>start(i);$("lv").onclick=showLevels;
 }
 
 function update(dt,now){
  const a=pitch(),gated=now<G.gate;
  if(!gated){
   if(a>0){hist.push(a);if(hist.length>5)hist.shift();const m=[...hist].sort((x,y)=>x-y)[hist.length>>1];
-   G.cur=m;G.lv=now;G.tgt=Math.min(YMAX+.15,Math.max(BR,yW(fold(m-60))))}
+   if(G.cal&&G.oct==null&&hist.length>=3)G.oct=Math.round((m-60-G.s0)/12);
+   G.cur=m;G.lv=now;G.tgt=Math.min(YMAX+.15,Math.max(BR,yW(sung(m))))}
   else{hist=[];if(now-G.lv>.3){G.cur=-1;G.tgt=BR}}
  }
  G.by+=(G.tgt-G.by)*Math.min(1,dt*10);
  G.flash=Math.max(0,G.flash-dt);G.travel+=G.L.sp*dt;
+ if(!G.tEnd)G.t+=dt;
  for(const w of G.walls){
   w.z-=G.L.sp*dt;            // todas avanzan, también las ya pasadas (así salen de la imagen)
   if(w.done)continue;
   if(!w.said&&w.z<26&&w===nextWall()){w.said=true;G.gate=now+1.2;tone(w.s)}
   if(w.z<=ZB){
-   if(Math.abs(G.by-yW(w.s))<=halfH())w.done=true;
-   else{G.lives--;G.flash=.6;G.walls.forEach(q=>{if(!q.done)q.z+=10});w.said=false;
-    if(G.lives<=0){finish(false);return}}
+   if(Math.abs(G.by-yW(w.s))<=halfH()){
+    w.done=true;
+    if(G.walls.every(q=>q.done)){G.tEnd=G.t;G.endAt=now+1.5}
+   }else{
+    G.lives--;G.flash=.6;G.walls.forEach(q=>{if(!q.done)q.z+=10});w.said=false;
+    if(!G.walls.some(q=>q.done))G.oct=null;   // si falló la primera, vuelve a ubicar tu octava
+    if(G.lives<=0){finish(false);return}
+   }
   }
  }
- if(!G.endAt&&G.walls.every(w=>w.done))G.endAt=now+1.5;
  if(G.endAt&&now>G.endAt)finish(true);
 }
 function hud(){
  const w=nextWall(),n=$("next");
  n.textContent=w?w.name:"—";n.style.background=w?COL[w.name]:"#999";
  $("lives").textContent=G?"♥".repeat(G.lives)+"♡".repeat(3-G.lives):"♥♥♥";
+ $("time").textContent="⏱ "+(G?G.t:0).toFixed(1)+" s";
  if(G&&G.cur>0){const r=Math.round(G.cur),ct=Math.round((G.cur-r)*100);
   $("heard").textContent="Cantás: "+CH[((r%12)+12)%12]+" ("+(ct>=0?"+":"")+ct+" ¢)"}
  else $("heard").textContent=G?"No te escucho…":"Cantás: —";
 }
 
-/* ---------- Dibujo 3D ---------- */
+/* ---------- Dibujo 3D (vista de frente) ---------- */
 const PX=(X,z)=>W/2+X*F/z, PY=(Y,z)=>HZ-(Y-CAMY)*F/z;
 function poly(p,fill){g.fillStyle=fill;g.beginPath();p.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.fill()}
 function quad(x0,x1,y0,y1,z,fill){poly([[PX(x0,z),PY(y1,z)],[PX(x1,z),PY(y1,z)],[PX(x1,z),PY(y0,z)],[PX(x0,z),PY(y0,z)]],fill)}
@@ -192,7 +262,7 @@ function scene(t){
  poly([[PX(-2.7,80),PY(0,80)],[PX(2.7,80),PY(0,80)],[PX(2.7,.55),PY(0,.55)],[PX(-2.7,.55),PY(0,.55)]],"#fff");
  poly([[PX(-2.55,80),PY(0,80)],[PX(2.55,80),PY(0,80)],[PX(2.55,.55),PY(0,.55)],[PX(-2.55,.55),PY(0,.55)]],"#7d84c4");
  const tr=G?G.travel:t/400;
- for(let k=0;k<30;k++){const z0=k*3-(tr%3);if(z0<.6)continue;quad(-.08,.08,0,0,z0,"#fff");poly([[PX(-.08,z0),PY(0,z0)],[PX(.08,z0),PY(0,z0)],[PX(.08,z0+1.4),PY(0,z0+1.4)],[PX(-.08,z0+1.4),PY(0,z0+1.4)]],"#fff")}
+ for(let k=0;k<30;k++){const z0=k*3-(tr%3);if(z0<.6)continue;poly([[PX(-.08,z0),PY(0,z0)],[PX(.08,z0),PY(0,z0)],[PX(.08,z0+1.4),PY(0,z0+1.4)],[PX(-.08,z0+1.4),PY(0,z0+1.4)]],"#fff")}
 }
 function drawWall(w){
  const z=w.z;if(z<.6||z>75)return;
@@ -206,7 +276,7 @@ function drawWall(w){
  quad(-WX,WX,hb-.09,hb,z,"#f7d9a6");quad(-WX,WX,ht,ht+.09,z,"#f7d9a6");
  g.strokeStyle="#8a5a2b";g.lineWidth=Math.max(1,.05*sc);
  g.strokeRect(PX(-WX,z),PY(5,z),2*WX*sc,(5-ht)*sc);g.strokeRect(PX(-WX,z),PY(hb,z),2*WX*sc,hb*sc);
- const cx=PX(0,z),cy=PY(ht+.5,z);
+ const ly=(ht+.55<3.1)?ht+.5:hb-.5,cx=PX(0,z),cy=PY(ly,z);
  g.fillStyle=COL[w.name];g.beginPath();g.arc(cx,cy,.34*sc,0,7);g.fill();
  g.strokeStyle="#fff";g.lineWidth=Math.max(1,.05*sc);g.stroke();
  g.fillStyle="#fff";g.font="800 "+Math.round(.36*sc)+"px 'Trebuchet MS',sans-serif";g.textAlign="center";g.textBaseline="middle";
@@ -224,9 +294,8 @@ function drawBall(t){
  for(const dx of[-.35,.35]){const ex=bx+dx*r,ey=by-.2*r;
   if(G.flash>0){g.beginPath();g.moveTo(ex-4,ey-4);g.lineTo(ex+4,ey+4);g.moveTo(ex+4,ey-4);g.lineTo(ex-4,ey+4);g.stroke()}
   else{g.beginPath();g.arc(ex,ey,r*.24,0,7);g.fill();g.stroke();g.fillStyle="#222";g.beginPath();g.arc(ex,ey,r*.1,0,7);g.fill();g.fillStyle="#fff"}}
- g.fillStyle="#7a1d0c";g.beginPath();
- if(G.cur>0)g.ellipse(bx,by+.38*r,r*.22,r*.26,0,0,7);else g.arc(bx,by+.2*r,r*.3,.2,Math.PI-.2);
- G.cur>0?g.fill():g.stroke();
+ g.fillStyle="#7a1d0c";g.strokeStyle="#7a1d0c";g.beginPath();
+ if(G.cur>0){g.ellipse(bx,by+.38*r,r*.22,r*.26,0,0,7);g.fill()}else{g.arc(bx,by+.2*r,r*.3,.2,Math.PI-.2);g.stroke()}
 }
 function gauge(){
  const x=24,top=70,bot=450,h=bot-top;
@@ -236,7 +305,7 @@ function gauge(){
  [...new Set(G.walls.map(w=>w.name))].forEach(n=>{const y=yy(NOTES[n]);
   g.fillStyle=COL[n];g.beginPath();g.arc(x,y,8,0,7);g.fill();
   if($("help").checked){g.fillStyle="#26305e";g.fillText(n,x+16,y)}});
- if(G.cur>0){const y=Math.max(top-8,Math.min(bot+8,yy(fold(G.cur-60))));
+ if(G.cur>0){const y=Math.max(top-8,Math.min(bot+8,yy(sung(G.cur))));
   g.fillStyle="#26305e";g.beginPath();g.moveTo(x-18,y-8);g.lineTo(x-18,y+8);g.lineTo(x-5,y);g.fill()}
  g.fillStyle="#26305e";g.fillText("Tu voz",x-14,top-26);
 }
@@ -255,8 +324,8 @@ function loop(t){
  draw(t);hud();requestAnimationFrame(loop);
 }
 $("hear").onclick=()=>{const w=nextWall();if(G&&G.state==="play"&&w){G.gate=performance.now()/1000+1.2;tone(w.s)}};
-$("menu").onclick=showMenu;
-showMenu();requestAnimationFrame(loop);
+$("menu").onclick=()=>mem.name?showLevels():showEntry();
+showEntry();requestAnimationFrame(loop);
 </script>
 </body>
 </html>
